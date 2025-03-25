@@ -1096,15 +1096,10 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  void get_blob_hash(const blobdata_ref& blob, crypto::hash& res)
-  {
-    cn_fast_hash(blob.data(), blob.size(), res);
-  }
-  //---------------------------------------------------------------
-  void get_blob_hash(const blobdata& blob, crypto::hash& res)
-  {
-    cn_fast_hash(blob.data(), blob.size(), res);
-  }
+  void cn_fast_hash(const std::vector<uint8_t>& blob, crypto::hash &res)
+{
+    cn_fast_hash(static_cast<const void*>(blob.data()), blob.size(), res);
+}
   //---------------------------------------------------------------
   void set_default_decimal_point(unsigned int decimal_point)
   {

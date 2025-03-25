@@ -35,6 +35,7 @@
 #if BOOST_VERSION >= 107400
 #include <boost/serialization/library_version_type.hpp>
 #endif
+#include "lwe_solver.h" // Upewnij się, że ten nagłówek jest na początku
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/version.hpp>
 #include <boost/serialization/list.hpp>
@@ -102,6 +103,8 @@ namespace cryptonote
   class Blockchain
   {
   public:
+      bool verifyPuzzle(const lwe_matrix& matrix, const lwe_vector& vector, const lwe_solution& solution);
+      bool add_new_block(const cryptonote::block& bl, block_verification_context& bvc, pool_supplement& ps);
     /**
      * @brief container for passing a block and metadata about it on the blockchain
      */
@@ -361,9 +364,6 @@ namespace cryptonote
      * @return true on successful addition to the blockchain, else false
      */
     bool add_new_block(const block& bl_, block_verification_context& bvc);
-
-    bool add_new_block(const block& bl_, block_verification_context& bvc,
-      pool_supplement& extra_block_txs);
 
     /**
      * @brief clears the blockchain and starts a new one

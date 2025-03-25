@@ -60,6 +60,8 @@
 #include "common/pruning.h"
 #include "common/data_cache.h"
 #include "time_helper.h"
+#include "crypto/sha3.h"
+#include "crypto/falcon.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "blockchain"
@@ -4585,43 +4587,51 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc)
-{
-  pool_supplement ps{};
-  return add_new_block(bl_, bvc, ps);
-}
-//------------------------------------------------------------------
-bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
-  pool_supplement& extra_block_txs)
+bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc, pool_supplement& extra_block_txs)
 {
   try
   {
+    LOG_PRINT_L3("Blockchain::" << __func__);
+    crypto::hash id = get_block_hash(bl);
+    
+    CRITICAL_REGION_LOCAL(m_tx_pool); // Blokada tx_pool, aby uniknąć deadlocka
+    CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+    
+    db_rtxn_guard rtxn_guard(m_db);
+    
+    if(have_block(id))
+    {
+      LOG_PRINT_L3("Block with id = " << id << " already exists");
+      bvc.m_already_exists = true;
+      return false;
+    }
 
-  LOG_PRINT_L3("Blockchain::" << __func__);
-  crypto::hash id = get_block_hash(bl);
-  CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
-  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
-  db_rtxn_guard rtxn_guard(m_db);
-  if(have_block(id))
-  {
-    LOG_PRINT_L3("block with id = " << id << " already exists");
-    bvc.m_already_exists = true;
-    return false;
-  }
+    // ✅ **Weryfikacja Falcona**
+    if (!Falcon::verifySignature(bl.merkle_root, bl.falcon_signature, public_key))
+    {
+        MERROR("❌ Invalid Falcon signature!");
+        bvc.m_verifivation_failed = true;
+        return false;
+    }
 
-  //check that block refers to chain tail
-  if(!(bl.prev_id == get_tail_id()))
-  {
-    //chain switching or wrong block
-    bvc.m_added_to_main_chain = false;
+    // ✅ **Weryfikacja rozwiązania LWE**
+    if (!Blockchain::verifyPuzzle(bl.lwe_matrix, bl.lwe_vector, bl.lwe_solution)) 
+    {
+        MERROR("❌ Invalid LWE solution!");
+        bvc.m_verifivation_failed = true;
+        return false;
+    }
+
+    // ✅ **Sprawdzenie, czy blok odnosi się do łańcucha głównego**
+    if(!(bl.prev_id == get_tail_id()))
+    {
+      bvc.m_added_to_main_chain = false;
+      rtxn_guard.stop();
+      return handle_alternative_block(bl, id, bvc, extra_block_txs);
+    }
+
     rtxn_guard.stop();
-    return handle_alternative_block(bl, id, bvc, extra_block_txs);
-    //never relay alternative blocks
-  }
-
-  rtxn_guard.stop();
-  return handle_block_to_main_chain(bl, id, bvc, extra_block_txs);
-
+    return handle_block_to_main_chain(bl, id, bvc, extra_block_txs);
   }
   catch (const std::exception &e)
   {
@@ -4630,6 +4640,7 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
     return false;
   }
 }
+
 //------------------------------------------------------------------
 //TODO: Refactor, consider returning a failure height and letting
 //      caller decide course of action.

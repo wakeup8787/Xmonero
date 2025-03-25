@@ -37,6 +37,9 @@
 #include "generic-ops.h"
 #include "hex.h"
 #include "span.h"
+#include "sha3.h"  // Dodajemy SHA3 do hash.h
+#include <openssl/evp.h>
+#include <openssl/sha.h>
 
 namespace crypto {
 
@@ -59,6 +62,8 @@ namespace crypto {
   /*
     Cryptonight hash functions
   */
+  
+  inline void cn_fast_hash(const void *data, size_t length, crypto::hash &hash);
 
   inline void cn_fast_hash(const void *data, std::size_t length, hash &hash) {
     cn_fast_hash(data, length, reinterpret_cast<char *>(&hash));
@@ -91,6 +96,11 @@ namespace crypto {
 
   constexpr static crypto::hash null_hash = {};
   constexpr static crypto::hash8 null_hash8 = {};
+}
+
+inline void cn_fast_hash(const void *data, size_t length, crypto::hash &hash)
+{
+    sha3(reinterpret_cast<const uint8_t*>(data), length, reinterpret_cast<uint8_t*>(&hash));
 }
 
 CRYPTO_MAKE_HASHABLE(hash)

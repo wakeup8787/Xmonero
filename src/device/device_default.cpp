@@ -361,7 +361,7 @@ namespace hw {
 
             memcpy(data, &derivation, 32);
             data[32] = config::HASH_KEY_ENCRYPTED_PAYMENT_ID;
-            cn_fast_hash(data, 33, hash);
+            crypto::cn_fast_hash(data, 33, hash);
 
             for (size_t b = 0; b < 8; ++b)
                 payment_id.data[b] ^= hash.data[b];

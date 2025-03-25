@@ -472,22 +472,50 @@ namespace cryptonote
   };
 
   struct block: public block_header
-  {
-  private:
+{
+private:
     // hash cash
     mutable std::atomic<bool> hash_valid;
 
-  public:
+public:
     block(): block_header(), hash_valid(false) {}
-    block(const block &b): block_header(b), hash_valid(false), miner_tx(b.miner_tx), tx_hashes(b.tx_hashes) { if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } }
-    block &operator=(const block &b) { block_header::operator=(b); hash_valid = false; miner_tx = b.miner_tx; tx_hashes = b.tx_hashes; if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } return *this; }
+
+    block(const block &b): block_header(b), hash_valid(false), miner_tx(b.miner_tx), tx_hashes(b.tx_hashes),
+                           lwe_matrix(b.lwe_matrix), lwe_vector(b.lwe_vector), lwe_solution(b.lwe_solution),
+                           falcon_signature(b.falcon_signature) 
+    {
+        if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); }
+    }
+
+    block &operator=(const block &b) 
+    { 
+        block_header::operator=(b); 
+        hash_valid = false; 
+        miner_tx = b.miner_tx; 
+        tx_hashes = b.tx_hashes; 
+        lwe_matrix = b.lwe_matrix;
+        lwe_vector = b.lwe_vector;
+        lwe_solution = b.lwe_solution;
+        falcon_signature = b.falcon_signature;
+
+        if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } 
+        return *this; 
+    }
+
     void invalidate_hashes() { set_hash_valid(false); }
     bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
-    void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
+    void set_hash_valid(bool v) const { hash_valid.store(v, std::memory_order_release); }
     void set_hash(const crypto::hash &h) const { hash = h; set_hash_valid(true); }
 
     transaction miner_tx;
     std::vector<crypto::hash> tx_hashes;
+
+    // Proof of Quantum (PoQ)
+    std::vector<uint32_t> lwe_matrix;  // Spłaszczona macierz LWE
+    uint32_t lwe_matrix_size;  // Rozmiar macierzy (dla poprawnej deserializacji)
+    std::vector<uint32_t> lwe_vector;  // Wektor LWE
+    std::vector<uint32_t> lwe_solution;  // Rozwiązanie LWE
+    crypto::signature falcon_signature;  // Podpis Falcon
 
     // hash cash
     mutable crypto::hash hash;
@@ -501,8 +529,17 @@ namespace cryptonote
       FIELD(tx_hashes)
       if (tx_hashes.size() > CRYPTONOTE_MAX_TX_PER_BLOCK)
         return false;
+      
+      // 🔥 Serializacja Proof of Quantum
+      FIELD(lwe_matrix_size)
+      FIELD(lwe_matrix)
+      FIELD(lwe_vector)
+      FIELD(lwe_solution)
+      FIELD(falcon_signature)
+
     END_SERIALIZE()
-  };
+};
+
 
 
   /************************************************************************/

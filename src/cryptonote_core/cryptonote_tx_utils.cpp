@@ -43,6 +43,7 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 
 using namespace crypto;
 
@@ -708,7 +709,8 @@ namespace cryptonote
   bool get_block_longhash(const Blockchain *pbc, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash, const int miners)
   {
     blobdata bd = get_block_hashing_blob(b);
-	return get_block_longhash(pbc, bd, res, height, b.major_version, seed_hash, miners);
+    return get_block_longhash(pbc, bd, res, height, seed_hash, miners);
+
   }
 
   crypto::hash get_block_longhash(const Blockchain *pbc, const block& b, const uint64_t height, const crypto::hash *seed_hash, const int miners)

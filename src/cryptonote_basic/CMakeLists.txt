@@ -52,7 +52,8 @@ set(cryptonote_basic_sources
   difficulty.cpp
   hardfork.cpp
   merge_mining.cpp
-  miner.cpp)
+  miner.cpp
+  gauss_seidel.cpp)
 
 set(cryptonote_basic_headers)
 
